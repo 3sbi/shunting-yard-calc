@@ -29,8 +29,12 @@ public class ShuntingYard {
         return names;
     }
 
-    private ArrayList<String> getConstantNames() {
+    public ArrayList<String> getConstantNames() {
         return new ArrayList<>(constants.keySet());
+    }
+
+    public ArrayList<String> getBinaryFuncNames() {
+        return new ArrayList<>(binaryFunctions.keySet());
     }
 
     ShuntingYard(Map<String, Double> variables) {
@@ -48,6 +52,9 @@ public class ShuntingYard {
         unaryFunctions = new HashMap<>();
         unaryFunctions.put("sin", new Func(Math::sin));
         unaryFunctions.put("cos", new Func(Math::cos));
+        unaryFunctions.put("abs", new Func(Math::abs));
+        unaryFunctions.put("log", new Func(Math::log));
+        unaryFunctions.put("sqrt", new Func(Math::sqrt));
 
         constants = Map.of(
                 "pi", Math.PI,
@@ -72,7 +79,6 @@ public class ShuntingYard {
                 //prevType = TokenTypes::ELSE;
                 continue;
             }
-            // classify token
             String leftBrackets = "({[";
             String operators = "+-*/^";
             if (this.isNumber(currentChar)) {
@@ -85,6 +91,11 @@ public class ShuntingYard {
                 int startI = i;
                 if (i < eqLen - 1) {
                     while (isNumber(equation.charAt(i + 1), acceptDecimal, acceptNegative)) {
+                        if (equation.charAt(i + 1) == '-' && acceptNegative) {
+                            // dirty hack
+                            stack.push("+");
+                            break;
+                        }
                         i++;
                         if (i >= eqLen - 1) {
                             break;
@@ -107,7 +118,6 @@ public class ShuntingYard {
                         // found valid object
                         type = TokenType.CONSTANT;
                     } else {
-
                         obj = findElement(i, equation, new ArrayList<>(variables.keySet()));
                         String rightBrackets = ")}]";
                         if (!obj.equals("")) {
@@ -150,8 +160,7 @@ public class ShuntingYard {
                                         leftBrackets.indexOf(last_stack.charAt(0)) == -1
                         ) {
                             // pop from the stack to the queue
-                            queue.add(stack.getLast());
-                            stack.removeLast();
+                            queue.add(stack.removeLast());
                             if (stack.size() == 0) {
                                 break;
                             }
@@ -183,7 +192,6 @@ public class ShuntingYard {
         return queue;
     }
 
-    // parse RPN to tree
     Node parse(ArrayList<String> rpn) {
         LinkedList<Node> stack = new LinkedList<>();
 
@@ -196,16 +204,13 @@ public class ShuntingYard {
                 FuncNode f = new FuncNode(item, unaryFunctions.containsKey(item));
                 if (binaryFunctions.containsKey(item)) {
                     // right child is second argument
-                    f.right = stack.getLast();
-                    stack.removeLast();
+                    f.right = stack.removeLast();
 
                     // left child is first argument
-                    f.left = stack.getLast();
-                    stack.removeLast();
+                    f.left = stack.removeLast();
                 } else if (unaryFunctions.containsKey(item)) {
                     // set child of node
-                    f.left = stack.getLast();
-                    stack.removeLast();
+                    f.left = stack.removeLast();
                 }
                 stack.push(f);
             }
@@ -214,25 +219,33 @@ public class ShuntingYard {
         if (stack.size() == 0) {
             return null;
         }
-
         return stack.getLast();
     }
 
     double eval(Node tree) {
-        if (tree.isFunc) {
-            FuncNode funcTree = new FuncNode(tree.name, unaryFunctions.containsKey(tree.name));
-            if (funcTree.isUnary) {
-                // evaluate child recursively and then evaluate with return value
-                return funcTree.eval(this.eval(tree.left));
-            } else {
-                // evaluate each child recursively and then evaluate with return value
-                return funcTree.eval(this.eval(tree.left), this.eval(tree.right));
-            }
-        } else {
-            // number node
-            NumNode numTree = new NumNode(tree.name);
-            return numTree.eval();
+        if (tree == null) {
+            return 0;
         }
+        try {
+            if (tree.isFunc) {
+                FuncNode funcTree = new FuncNode(tree.name, unaryFunctions.containsKey(tree.name));
+                if (funcTree.isUnary) {
+                    // evaluate child recursively and then evaluate with return value
+                    return funcTree.eval(this.eval(tree.left));
+                } else {
+                    // evaluate each child recursively and then evaluate with return value
+                    return funcTree.eval(this.eval(tree.left), this.eval(tree.right));
+                }
+            } else {
+                // number node
+                NumNode numTree = new NumNode(tree.name);
+                return numTree.eval();
+            }
+        } catch (NullPointerException ex) {
+            return 0;
+        }
+
+
     }
 
     // determine if character is number
@@ -249,10 +262,16 @@ public class ShuntingYard {
     }
 
     private boolean isNumber(char c) {
-        return this.isNumber(c, false, false);
+        return this.isNumber(c, true, true);
     }
 
     boolean isStringNumeric(String str) {
+        if (getConstantNames().contains(str)) {
+            return true;
+        }
+        if (variables.containsKey(str)) {
+            return true;
+        }
         try {
             Double.parseDouble(str);
             return true;
@@ -312,12 +331,11 @@ public class ShuntingYard {
     private String findElement(int i, String eqn, ArrayList<String> list) {
         for (String item : list) {
             int n = item.length();
-            if (eqn.length() > i + n) {
+            if (eqn.length() >= i + n) {
                 if (eqn.substring(i, i + n).equals(item)) {
                     return item;
                 }
             }
-
         }
         return "";
     }
