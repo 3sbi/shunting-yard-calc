@@ -49,7 +49,8 @@ public class ShuntingYard {
         unaryFunctions.put("sin", new Func(Math::sin));
         unaryFunctions.put("cos", new Func(Math::cos));
         unaryFunctions.put("abs", new Func(Math::abs));
-        unaryFunctions.put("log", new Func(Math::log));
+        unaryFunctions.put("log", new Func(Math::log10));
+        unaryFunctions.put("ln", new Func(Math::log));
         unaryFunctions.put("sqrt", new Func(Math::sqrt));
 
         constants = Map.of(
@@ -178,24 +179,24 @@ public class ShuntingYard {
     }
 
     Node parse(ArrayList<String> rpn) {
-        LinkedList<Node> stack = new LinkedList<>();
+        Stack<Node> stack = new Stack<>();
 
         for (String item : rpn) {
             if (isStringNumeric(item)) {
                 // push number node
-                stack.add(new NumNode(item));
+                stack.push(new NumNode(item));
             } else {
                 // function
                 FuncNode f = new FuncNode(item, unaryFunctions.containsKey(item));
                 if (binaryFunctions.containsKey(item)) {
                     // right child is second argument
-                    f.right = stack.removeLast();
+                    f.right = stack.pop();
 
                     // left child is first argument
-                    f.left = stack.removeLast();
+                    f.left = stack.pop();
                 } else if (unaryFunctions.containsKey(item)) {
                     // set child of node
-                    f.left = stack.removeLast();
+                    f.left = stack.pop();
                 }
                 stack.push(f);
             }
@@ -204,7 +205,7 @@ public class ShuntingYard {
         if (stack.size() == 0) {
             return null;
         }
-        return stack.getLast();
+        return stack.firstElement();
     }
 
     double eval(Node tree) {
