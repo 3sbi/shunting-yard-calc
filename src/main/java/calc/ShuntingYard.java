@@ -33,10 +33,6 @@ public class ShuntingYard {
         return new ArrayList<>(constants.keySet());
     }
 
-    public ArrayList<String> getBinaryFuncNames() {
-        return new ArrayList<>(binaryFunctions.keySet());
-    }
-
     ShuntingYard(Map<String, Double> variables) {
         this.variables = variables;
         binaryFunctions = new HashMap<>();
@@ -68,7 +64,6 @@ public class ShuntingYard {
         LinkedList<String> stack = new LinkedList<>();
         String obj;
         TokenType type;
-        TokenType prevType = TokenType.ELSE;
         boolean acceptDecimal = true;
         boolean acceptNegative = true;
         int eqLen = equation.length();
@@ -76,7 +71,6 @@ public class ShuntingYard {
             char currentChar = equation.charAt(i);
             // skip spaces and commas
             if (currentChar == ' ' || currentChar == ',') {
-                //prevType = TokenTypes::ELSE;
                 continue;
             }
             String leftBrackets = "({[";
@@ -102,7 +96,7 @@ public class ShuntingYard {
                         }
                     }
                 }
-                obj = equation.substring(startI, i + 1);
+                obj = this.substr(equation, startI, i - startI + 1);
                 // subtraction sign detection
                 if (obj.equals("-")) {
                     type = TokenType.OPERATOR;
@@ -135,23 +129,16 @@ public class ShuntingYard {
                 }
                 i += obj.length() - 1;
             }
-
             // do something with the token
-            String last_stack = (stack.size() > 0) ? stack.getLast() : "";
+            String last_stack = (stack.size() > 0) ? stack.getFirst() : "";
             switch (type) {
-                case CONSTANT: {
-                    queue.add(obj);
-                    break;
-                }
-                case FUNCTION, LPAREN: {
-                    stack.push(obj);
-                    break;
-                }
-                case OPERATOR: {
+                case CONSTANT -> queue.add(obj);
+                case FUNCTION, LPAREN -> stack.push(obj);
+                case OPERATOR -> {
                     if (stack.size() != 0) {
                         while (
-                                (getFunctionNames().contains(last_stack) &&
-                                        operators.indexOf(last_stack.charAt(0)) == -1
+                                ((getFunctionNames().contains(last_stack) &&
+                                        operators.indexOf(last_stack.charAt(0)) == -1)
                                         ||
                                         getPrecedence(last_stack) > getPrecedence(obj) ||
                                         ((getPrecedence(last_stack) == getPrecedence(obj)) &&
@@ -160,33 +147,31 @@ public class ShuntingYard {
                                         leftBrackets.indexOf(last_stack.charAt(0)) == -1
                         ) {
                             // pop from the stack to the queue
-                            queue.add(stack.removeLast());
+                            queue.add(stack.pop());
                             if (stack.size() == 0) {
                                 break;
                             }
-                            last_stack = stack.getLast();
+                            last_stack = stack.getFirst();
                         }
                     }
                     stack.push(obj);
-                    break;
-
                 }
-                case RPAREN: {
+                case RPAREN -> {
                     while (last_stack.charAt(0) != '(') {
                         // pop from the stack to the queue
-                        queue.add(stack.removeLast());
-                        last_stack = stack.getLast();
+                        queue.add(stack.pop());
+                        last_stack = stack.getFirst();
                     }
                     stack.pop();
-                    break;
                 }
-                default:
+                default -> {
                     return queue;
+                }
             }
-            prevType = type;
         }
         while (stack.size() > 0) {
-            queue.add(stack.removeLast());
+            queue.add(stack.getFirst());
+            stack.pop();
         }
 
         return queue;
@@ -280,40 +265,6 @@ public class ShuntingYard {
         }
     }
 
-    // determine if string only contains numerical characters
-    boolean containsNumbers(String str) {
-        // cannot be a single decimal point or negative sign
-        if (str.equals(".") || str.equals("-")) {
-            return false;
-        }
-
-        // try to prove wrong
-        boolean acceptDecimal = true;
-        if (isNumber(str.charAt(0), true, true)) {
-            // check first character for negative sign
-            if (str.charAt(0) == '.') {
-                // cannot be any more decimal points
-                acceptDecimal = false;
-            }
-        } else {
-            return false;
-        }
-
-        for (int i = 1, len = str.length(); i < len; i++) {
-            // do not accept anymore negative signs
-            if (!isNumber(str.charAt(i), acceptDecimal, false)) {
-                return false;
-            }
-
-            if (str.charAt(i) == '.') {
-                // cannot be any more decimal points
-                acceptDecimal = false;
-            }
-        }
-
-        return true;
-    }
-
     // determine if function is left associative
     private boolean isLeftAssociative(String str) {
         return binaryFunctions.get(str).left;
@@ -328,13 +279,15 @@ public class ShuntingYard {
         return 0;
     }
 
+    private String substr(String myString, int start, int length) {
+        return myString.substring(start, Math.min(start + length, myString.length()));
+    }
+
     private String findElement(int i, String eqn, ArrayList<String> list) {
         for (String item : list) {
             int n = item.length();
-            if (eqn.length() >= i + n) {
-                if (eqn.substring(i, i + n).equals(item)) {
-                    return item;
-                }
+            if (this.substr(eqn, i, n).equals(item)) {
+                return item;
             }
         }
         return "";

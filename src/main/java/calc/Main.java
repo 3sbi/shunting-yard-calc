@@ -36,14 +36,6 @@ public class Main {
                 }
             }
             System.out.println("Array of nodes: " + Arrays.toString(rpn.toArray()));
-            ArrayList<String> names = yard.getBinaryFuncNames();
-            for (int i = 0; i < rpn.size() - 1; i++) {
-                if (names.contains(rpn.get(i)) && names.contains(rpn.get(i + 1))) {
-                    System.out.println("Error: multiple binary operators one after each other");
-                    return;
-                }
-            }
-
             Node tree = yard.parse(rpn);
             double result = yard.eval(tree);
             System.out.printf("Result: %f\n", result);
